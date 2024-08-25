@@ -1,1 +1,80 @@
+// Note: First add your search query. Then, after search query is added, you can use GPT to refine results from message. For example, copy and paste your messages into Chat GPT and use this example prompt:
+// GPT Prompt: from the above messages, create 4 separate columns that I can copy individually. each column has data extracted from the message. Columns are: name, start date, end date, and email address. The date formats should follow this example "9/14"
+
+// Add your search query here.
+// ex: "from: airbnb", "before: 2024/08/09 after: 2024/07/15"
+var SEARCH_QUERY = 'from: via Listings Project after:2024/08/09';
+// If you want each email address just once the sheet, set to true. 
+var AVOID_REPEATED_ADDRESS = false;
+
+// Main function, finds all emails meeting criteria of Search_Query above
+function saveEmails() {
+    console.log("Clearing sheet...");
+    SpreadsheetApp.getActiveSheet().clear();  
+  
+    console.log(`Searching for: "${SEARCH_QUERY}"`);
+    var start = 0;
+    var max = 500;
+    
+    var threads = GmailApp.search(SEARCH_QUERY, start, max);
+    if (threads!=null){
+      console.log("Threads found 🎉");
+      console.log("Paginating to collect email addresses...");
+    } else {
+      console.warn("No emails found within search criteria 😢");
+      return;
+    }
+
+    // Add Sheet header columns you want here as part of this array:
+    appendData(1, [["Date","From Address", "to Address", "Message"]]);
+    
+    var totalEmails = 0;
+    var emails = [];
+    var addresses = [];
+    while (threads.length>0){
+      for (var i in threads) {
+          var thread=threads[i];
+          var data = thread.getLastMessageDate();
+          var msgs = threads[i].getMessages();
+          for (var j in msgs) {
+            var msg = msgs[j];
+
+            // Values to get and store.
+            var data = msg.getDate();          
+            var from = msg.getFrom();
+            var to = msg.getTo();
+            var body = msg.getPlainBody(); // Get the body of the email
+            // var subject = msg.getSubject();
+            var dataLine = [data,from,to, body];
+
+            // Add values to array
+            if (!AVOID_REPEATED_ADDRESS || (AVOID_REPEATED_ADDRESS && !addresses.includes(to))){
+              emails.push(dataLine);
+              addresses.push(to);
+            }
+          }
+      }
+
+      totalEmails = totalEmails + emails.length;
+
+      // Add emails to sheet
+      appendData(2, emails);
+
+      if (threads.length == max){
+          console.log("Reading next page...");
+      } else {
+          console.log("Last page readed 🏁");
+      }
+      start = start + max; 
+      threads = GmailApp.search(SEARCH_QUERY, start, max);
+    }
+
+    console.info(totalEmails+" emails added to sheet 🎉");
+}
+
+// Add contents to sheet
+function appendData(line, array2d) {
+  var sheet = SpreadsheetApp.getActiveSheet();
+  sheet.getRange(line, 1, array2d.length, array2d[0].length).setValues(array2d);
+}
 
